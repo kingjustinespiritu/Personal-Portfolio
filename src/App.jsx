@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const sections = [
   {
     id: 'about',
     eyebrow: 'A little about me',
-    title: 'About',
+    title: 'ABOUT ME',
+    navTitle: 'ABOUT',
     description: [
       "Hi! I'm a Bachelor of Science in Information Technology student at Central Luzon State University, passionate about technology, web development, and problem-solving. I enjoy exploring new technologies and creating digital solutions that combine functionality with clean, user-friendly design.",
       "I have an experience working with HTML, CSS, Java, C, and PHP, and I'm continuously improving my skills through academic projects and personal learning. My goal is to grow as an IT professional, gain practical experience, and build projects that showcase my creativity, technical knowledge, and dedication to continuous learning.",
@@ -13,24 +14,24 @@ const sections = [
   {
     id: 'projects',
     eyebrow: 'Selected work',
-    title: 'Projects',
+    title: 'PROJECTS',
     description: 'Projects coming soon.',
   },
   {
     id: 'techstack',
     eyebrow: 'Tools I use',
-    title: 'Tech Stack',
+    title: 'TECH STACK',
     description: 'Tech stack details coming soon.',
   },
   {
     id: 'contact',
     eyebrow: 'Let’s connect',
-    title: 'Contact',
+    title: 'CONTACT',
     description: 'Contact details coming soon.',
   },
 ];
 
-const navLinks = sections.map(({ id, title }) => ({ id, title }));
+const navLinks = sections.map(({ id, title, navTitle }) => ({ id, title: navTitle || title }));
 const technologies = [
   { name: 'C', icon: null },
   { name: 'Java', icon: 'fa-brands fa-java' },
@@ -45,11 +46,99 @@ const technologies = [
   { name: 'GitHub', icon: 'fa-brands fa-github' },
 ];
 
+function TypingHeading({ id, title }) {
+  const headingRef = useRef(null);
+  const [displayedTitle, setDisplayedTitle] = useState(() => (
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? title : ''
+  ));
+
+  useEffect(() => {
+    const heading = headingRef.current;
+    if (!heading) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayedTitle(title);
+      return undefined;
+    }
+
+    let typingTimer;
+    let wasVisible = false;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !wasVisible) {
+        wasVisible = true;
+        let characterCount = 0;
+        setDisplayedTitle('');
+        typingTimer = window.setInterval(() => {
+          characterCount += 1;
+          setDisplayedTitle(title.slice(0, characterCount));
+          if (characterCount >= title.length) window.clearInterval(typingTimer);
+        }, 85);
+        return;
+      }
+
+      if (!entry.isIntersecting && wasVisible) {
+        wasVisible = false;
+        window.clearInterval(typingTimer);
+        setDisplayedTitle('');
+      }
+    }, { threshold: 0.3 });
+
+    observer.observe(heading);
+    return () => {
+      observer.disconnect();
+      window.clearInterval(typingTimer);
+    };
+  }, [title]);
+
+  return (
+    <h2 id={id} ref={headingRef} className={id === 'contact-title' ? 'contact-title' : undefined} aria-label={title}>
+      <span aria-hidden="true">{displayedTitle}</span>
+      <span className="typing-cursor" aria-hidden="true" />
+    </h2>
+  );
+}
+
+function ContactSection() {
+  return (
+    <section id="contact" className="content-section contact-section" aria-labelledby="contact-title">
+      <div className="contact-layout">
+        <div className="contact-copy">
+          <p className="eyebrow">Get in touch</p>
+          <TypingHeading id="contact-title" title="LET'S WORK TOGETHER" />
+          <p className="contact-intro">Have a project, opportunity, or question? I’d be glad to hear from you.</p>
+          <p className="contact-summary">Reach out by email or connect with me on GitHub and LinkedIn.</p>
+        </div>
+        <div className="contact-methods">
+          <a className="contact-card" href="mailto:kingjustinespiritu@gmail.com">
+            <span className="contact-icon"><i className="fa-regular fa-envelope" aria-hidden="true" /></span>
+            <span className="contact-card-copy"><span className="contact-label">Email</span><span className="contact-value">kingjustinespiritu@gmail.com</span></span>
+            <span className="contact-number">01</span>
+          </a>
+          <a className="contact-card" href="https://github.com/kingjustinespiritu" target="_blank" rel="noopener noreferrer">
+            <span className="contact-icon"><i className="fa-brands fa-github" aria-hidden="true" /></span>
+            <span className="contact-card-copy"><span className="contact-label">GitHub</span><span className="contact-value">github.com/kingjustinespiritu</span></span>
+            <i className="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true" />
+            <span className="contact-number">02</span>
+          </a>
+          <a className="contact-card" href="https://www.linkedin.com/in/king-justin-espiritu-ab2675329/" target="_blank" rel="noopener noreferrer">
+            <span className="contact-icon"><i className="fa-brands fa-linkedin-in" aria-hidden="true" /></span>
+            <span className="contact-card-copy"><span className="contact-label">LinkedIn</span><span className="contact-value">linkedin.com/in/king-justin-espiritu</span></span>
+            <i className="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true" />
+            <span className="contact-number">03</span>
+          </a>
+          <a className="contact-message" href="mailto:kingjustinespiritu@gmail.com">
+            Send me a message <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ContentSection({ eyebrow, title, description, id }) {
   return (
     <section id={id} className="content-section" aria-labelledby={`${id}-title`}>
       <p className="eyebrow">{eyebrow}</p>
-      <h2 id={`${id}-title`}>{title}</h2>
+      <TypingHeading id={`${id}-title`} title={title} />
       {id === 'about' ? (
         <div className="about-grid">
           <div className="about-bio">
@@ -130,20 +219,21 @@ function App() {
   }, []);
 
   const closeMenu = () => setMenuOpen(false);
+  const toggleTheme = (event) => {
+    const { left, top, width, height } = event.currentTarget.getBoundingClientRect();
+    const root = document.documentElement;
+    root.style.setProperty('--theme-reveal-x', `${left + width / 2}px`);
+    root.style.setProperty('--theme-reveal-y', `${top + height / 2}px`);
+    const changeTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark');
+
+    if (document.startViewTransition) document.startViewTransition(changeTheme);
+    else changeTheme();
+  };
 
   return (
     <>
       <header className="header">
         <a href="#home" className="logo" onClick={closeMenu}>King Justin Espiritu</a>
-        <button
-          className="theme-toggle"
-          type="button"
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
-        >
-          <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} aria-hidden="true" />
-        </button>
         <button
           className="menu-toggle"
           type="button"
@@ -173,9 +263,17 @@ function App() {
             ))}
           </ul>
         </nav>
-        <a className="visit-btn" href="https://github.com/kingjustinespiritu" target="_blank" rel="noopener noreferrer" aria-label="Visit GitHub">
-          <i className="github-icon fa-brands fa-github" aria-hidden="true" />
-          <span className="github-label">Visit GitHub</span>
+        <button
+          className="theme-toggle"
+          type="button"
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          onClick={toggleTheme}
+        >
+          <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} aria-hidden="true" />
+        </button>
+        <a className="visit-btn" href="#contact" aria-label="Hire me">
+          <span className="github-label">Hire Me</span>
         </a>
       </header>
 
@@ -212,7 +310,9 @@ function App() {
           </div>
         </section>
 
-        {sections.map((section) => <ContentSection key={section.id} {...section} />)}
+        {sections.map((section) => section.id === 'contact'
+          ? <ContactSection key={section.id} />
+          : <ContentSection key={section.id} {...section} />)}
       </main>
 
       <footer><p>© <span>{new Date().getFullYear()}</span> King Justin Espiritu</p></footer>
