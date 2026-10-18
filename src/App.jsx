@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import projects from './projects.js';
 
 const sections = [
   {
@@ -134,11 +135,103 @@ function ContactSection() {
   );
 }
 
+function ProjectsShowcase({ projects }) {
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (!selectedProject) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setSelectedProject(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedProject]);
+
+  const activeProject = projects[activeIndex];
+  const previousIndex = projects.length > 1 ? (activeIndex - 1 + projects.length) % projects.length : -1;
+  const nextIndex = projects.length > 1 ? (activeIndex + 1) % projects.length : -1;
+
+  const renderStackCard = (project, index, position) => (
+    <article className={`project-stack-card project-stack-${position}`} key={`${project.title}-${index}`}>
+      <div className="project-card-badges">
+        <span className="project-feature-badge">{project.badge || `#${String(index + 1).padStart(2, '0')} FEATURED`}</span>
+        {project.category && <span className="project-category-badge">{project.category}</span>}
+      </div>
+      <div className="project-stack-main">
+        {project.image ? <img className="project-stack-image" src={project.image} alt={`${project.title} preview`} /> : <span className="project-stack-mark" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>}
+        <div className="project-stack-copy">
+          <h3>{project.title}</h3>
+          <p>{project.description}</p>
+        </div>
+      </div>
+      {project.technologies?.length > 0 && <ul className="project-tags" aria-label="Technologies used">{project.technologies.slice(0, 4).map((technology) => <li key={technology}>{technology}</li>)}</ul>}
+      {position === 'front' && (
+        <div className="project-links">
+          <button className="project-details-button" type="button" onClick={() => setSelectedProject(project)}>View Details <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+          {project.demoUrl && <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">Live demo <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>}
+          {project.sourceUrl && <a href={project.sourceUrl} target="_blank" rel="noopener noreferrer">Source code <i className="fa-brands fa-github" aria-hidden="true" /></a>}
+        </div>
+      )}
+    </article>
+  );
+
+  return (
+    <>
+      <div className="project-stack" aria-live="polite">
+        {projects.length > 2 && renderStackCard(projects[previousIndex], previousIndex, 'back-left')}
+        {projects.length > 1 && renderStackCard(projects[nextIndex], nextIndex, 'back-right')}
+        {activeProject && renderStackCard(activeProject, activeIndex, 'front')}
+      </div>
+      {projects.length > 1 && (
+        <div className="project-stack-controls" aria-label="Choose a project">
+          {projects.map((project, index) => (
+            <button key={`${project.title}-dot`} type="button" className={index === activeIndex ? 'is-active' : ''} aria-label={`Show ${project.title}`} aria-pressed={index === activeIndex} onClick={() => setActiveIndex(index)} />
+          ))}
+        </div>
+      )}
+      {selectedProject && (
+        <div className="project-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSelectedProject(null);
+        }}>
+          <section className="project-modal" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
+            <button className="project-modal-close" type="button" aria-label="Close project details" onClick={() => setSelectedProject(null)}>
+              <i className="fa-solid fa-xmark" aria-hidden="true" />
+            </button>
+            <div className="project-modal-layout">
+              {selectedProject.image && <img className="project-modal-image" src={selectedProject.image} alt={`${selectedProject.title} full screenshot`} />}
+              <div className="project-modal-content">
+                <p className="eyebrow">Project details</p>
+                <h3 id="project-modal-title">{selectedProject.title}</h3>
+                <p>{selectedProject.details || selectedProject.description}</p>
+                {selectedProject.technologies?.length > 0 && <ul className="project-tags" aria-label="Technologies used">{selectedProject.technologies.map((technology) => <li key={technology}>{technology}</li>)}</ul>}
+                <div className="project-links">
+                  {selectedProject.demoUrl && <a href={selectedProject.demoUrl} target="_blank" rel="noopener noreferrer">Live demo <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>}
+                  {selectedProject.sourceUrl && <a href={selectedProject.sourceUrl} target="_blank" rel="noopener noreferrer">Source code <i className="fa-brands fa-github" aria-hidden="true" /></a>}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ContentSection({ eyebrow, title, description, id }) {
   return (
-    <section id={id} className="content-section" aria-labelledby={`${id}-title`}>
-      <p className="eyebrow">{eyebrow}</p>
-      <TypingHeading id={`${id}-title`} title={title} />
+    <section id={id} className={`content-section${id === 'projects' ? ' projects-section' : ''}`} aria-labelledby={`${id}-title`}>
+      {id === 'projects' ? (
+        <div className="projects-section-heading">
+          <TypingHeading id={`${id}-title`} title="02 — PROJECTS" />
+          <a href="https://github.com/kingjustinespiritu?tab=repositories" target="_blank" rel="noopener noreferrer">ALL PROJECTS <i className="fa-solid fa-arrow-right" aria-hidden="true" /></a>
+        </div>
+      ) : (
+        <>
+          <p className="eyebrow">{eyebrow}</p>
+          <TypingHeading id={`${id}-title`} title={title} />
+        </>
+      )}
       {id === 'about' ? (
         <div className="about-grid">
           <div className="about-bio">
@@ -152,6 +245,12 @@ function ContentSection({ eyebrow, title, description, id }) {
             <div className="about-detail"><h3>Location</h3><p>Science City of Munoz, Nueva Ecija, PH</p></div>
           </div>
         </div>
+      ) : id === 'projects' ? (
+        projects.length ? (
+          <ProjectsShowcase projects={projects} />
+        ) : (
+          <div className="projects-empty-state"><span aria-hidden="true">✳</span><p>Your projects will appear here.</p></div>
+        )
       ) : id === 'techstack' ? (
         <div className="tech-grid">
           {technologies.map(({ name, icon, image }) => (
@@ -233,7 +332,6 @@ function App() {
   return (
     <>
       <header className="header">
-        <a href="#home" className="logo" onClick={closeMenu}>King Justin Espiritu</a>
         <button
           className="menu-toggle"
           type="button"
