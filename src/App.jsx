@@ -32,7 +32,7 @@ const sections = [
   },
 ];
 
-const navLinks = sections.map(({ id, title, navTitle }) => ({ id, title: navTitle || title }));
+const navLinks = [{ id: 'home', title: 'HOME' }, ...sections.map(({ id, title, navTitle }) => ({ id, title: navTitle || title }))];
 const technologies = [
   { name: 'C', icon: null },
   { name: 'Java', icon: 'fa-brands fa-java' },
@@ -110,24 +110,25 @@ function ContactSection() {
         </div>
         <div className="contact-methods">
           <a className="contact-card" href="mailto:kingjustinespiritu@gmail.com">
-            <span className="contact-icon"><i className="fa-regular fa-envelope" aria-hidden="true" /></span>
+            <span className="contact-icon"><i className="fa-solid fa-envelope" aria-hidden="true" /></span>
             <span className="contact-card-copy"><span className="contact-label">Email</span><span className="contact-value">kingjustinespiritu@gmail.com</span></span>
+            <span className="contact-external" aria-hidden="true">↗</span>
             <span className="contact-number">01</span>
           </a>
           <a className="contact-card" href="https://github.com/kingjustinespiritu" target="_blank" rel="noopener noreferrer">
             <span className="contact-icon"><i className="fa-brands fa-github" aria-hidden="true" /></span>
             <span className="contact-card-copy"><span className="contact-label">GitHub</span><span className="contact-value">github.com/kingjustinespiritu</span></span>
-            <i className="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true" />
+            <span className="contact-external" aria-hidden="true">↗</span>
             <span className="contact-number">02</span>
           </a>
           <a className="contact-card" href="https://www.linkedin.com/in/king-justin-espiritu-ab2675329/" target="_blank" rel="noopener noreferrer">
             <span className="contact-icon"><i className="fa-brands fa-linkedin-in" aria-hidden="true" /></span>
             <span className="contact-card-copy"><span className="contact-label">LinkedIn</span><span className="contact-value">linkedin.com/in/king-justin-espiritu</span></span>
-            <i className="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true" />
+            <span className="contact-external" aria-hidden="true">↗</span>
             <span className="contact-number">03</span>
           </a>
           <a className="contact-message" href="mailto:kingjustinespiritu@gmail.com">
-            Send me a message <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+            Send me a message <span className="contact-message-arrow" aria-hidden="true">→</span>
           </a>
         </div>
       </div>
@@ -137,7 +138,8 @@ function ContactSection() {
 
 function ProjectsShowcase({ projects }) {
   const [selectedProject, setSelectedProject] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(() => window.matchMedia('(max-width: 600px)').matches ? 1 : 3);
+  const dragState = useRef(null);
 
   useEffect(() => {
     if (!selectedProject) return undefined;
@@ -148,48 +150,103 @@ function ProjectsShowcase({ projects }) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [selectedProject]);
 
-  const activeProject = projects[activeIndex];
-  const previousIndex = projects.length > 1 ? (activeIndex - 1 + projects.length) % projects.length : -1;
-  const nextIndex = projects.length > 1 ? (activeIndex + 1) % projects.length : -1;
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      const nextVisibleCount = window.matchMedia('(max-width: 600px)').matches ? 1 : 3;
+      setVisibleCount(nextVisibleCount);
+    };
+    window.addEventListener('resize', updateVisibleCount);
+    return () => window.removeEventListener('resize', updateVisibleCount);
+  }, []);
 
-  const renderStackCard = (project, index, position) => (
-    <article className={`project-stack-card project-stack-${position}`} key={`${project.title}-${index}`}>
+  const slidesOn = projects.length > 3;
+  const loopedProjects = slidesOn
+    ? [
+        ...projects.map((project, originalIndex) => ({ project, originalIndex, clone: '' })),
+        ...projects.map((project, originalIndex) => ({ project, originalIndex, clone: 'loop' })),
+      ]
+    : projects.map((project, originalIndex) => ({ project, originalIndex, clone: '' }));
+  const trackStyle = {
+    '--total-projects': loopedProjects.length,
+    width: slidesOn ? `${loopedProjects.length / visibleCount * 100}%` : '100%',
+    gridTemplateColumns: `repeat(${loopedProjects.length}, minmax(0, 1fr))`,
+    '--carousel-duration': `${Math.max(18, projects.length * 3)}s`,
+  };
+  const beginCarouselDrag = (event) => {
+    if (!slidesOn || event.target.closest('button, a')) return;
+    const track = event.currentTarget.querySelector('.project-carousel-track');
+    const animation = track?.getAnimations().find((item) => item.animationName === 'project-carousel-loop');
+    if (!animation) return;
+    animation.pause();
+    const timing = animation.effect.getComputedTiming();
+    dragState.current = {
+      animation,
+      startX: event.clientX,
+      startTime: Number(animation.currentTime) || 0,
+      duration: timing.duration,
+      carouselWidth: event.currentTarget.clientWidth,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveCarouselDrag = (event) => {
+    const drag = dragState.current;
+    if (!drag) return;
+    const distance = event.clientX - drag.startX;
+    const cardWidth = drag.carouselWidth / visibleCount;
+    drag.animation.currentTime = drag.startTime - (distance / cardWidth) * (drag.duration / projects.length);
+  };
+  const endCarouselDrag = () => {
+    if (!dragState.current) return;
+    dragState.current.animation.play();
+    dragState.current = null;
+  };
+
+  const renderProjectCard = (project, index) => (
+    <article
+      key={`${project.title}-${index}`}
+      className="project-stack-card"
+    >
       <div className="project-card-badges">
         <span className="project-feature-badge">{project.badge || `#${String(index + 1).padStart(2, '0')} FEATURED`}</span>
         {project.category && <span className="project-category-badge">{project.category}</span>}
       </div>
-      <div className="project-stack-main">
-        {project.image ? <img className="project-stack-image" src={project.image} alt={`${project.title} preview`} /> : <span className="project-stack-mark" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>}
-        <div className="project-stack-copy">
-          <h3>{project.title}</h3>
-          <p>{project.description}</p>
-        </div>
+      <div className="project-preview">
+        {project.image
+          ? <img src={project.image} alt={`${project.title} preview`} loading="lazy" style={{ objectPosition: project.imagePosition || 'center' }} />
+          : <span className="project-preview-mark" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>}
+      </div>
+      <div className="project-card-content">
+        <h3>{project.title}</h3>
+        <p>{project.description}</p>
       </div>
       {project.technologies?.length > 0 && <ul className="project-tags" aria-label="Technologies used">{project.technologies.slice(0, 4).map((technology) => <li key={technology}>{technology}</li>)}</ul>}
-      {position === 'front' && (
-        <div className="project-links">
-          <button className="project-details-button" type="button" onClick={() => setSelectedProject(project)}>View Details <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
-          {project.demoUrl && <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">Live demo <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>}
-          {project.sourceUrl && <a href={project.sourceUrl} target="_blank" rel="noopener noreferrer">Source code <i className="fa-brands fa-github" aria-hidden="true" /></a>}
-        </div>
-      )}
+      <div className="project-links">
+        <button className="project-details-button" type="button" onClick={() => setSelectedProject(project)}>View Details <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>
+        {project.demoUrl && <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">Live demo <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></a>}
+        {project.sourceUrl && <a href={project.sourceUrl} target="_blank" rel="noopener noreferrer">Source code <i className="fa-brands fa-github" aria-hidden="true" /></a>}
+      </div>
     </article>
   );
 
   return (
     <>
-      <div className="project-stack" aria-live="polite">
-        {projects.length > 2 && renderStackCard(projects[previousIndex], previousIndex, 'back-left')}
-        {projects.length > 1 && renderStackCard(projects[nextIndex], nextIndex, 'back-right')}
-        {activeProject && renderStackCard(activeProject, activeIndex, 'front')}
-      </div>
-      {projects.length > 1 && (
-        <div className="project-stack-controls" aria-label="Choose a project">
-          {projects.map((project, index) => (
-            <button key={`${project.title}-dot`} type="button" className={index === activeIndex ? 'is-active' : ''} aria-label={`Show ${project.title}`} aria-pressed={index === activeIndex} onClick={() => setActiveIndex(index)} />
+      <div
+        className={`project-carousel${!slidesOn ? ' project-carousel-few' : ''}`}
+        role="region"
+        aria-label="Project carousel"
+        onPointerDown={beginCarouselDrag}
+        onPointerMove={moveCarouselDrag}
+        onPointerUp={endCarouselDrag}
+        onPointerCancel={endCarouselDrag}
+      >
+        <div className={`project-carousel-track${slidesOn ? ' is-looping' : ''}`} style={trackStyle}>
+          {loopedProjects.map(({ project, originalIndex, clone }, trackIndex) => (
+            <div className="project-carousel-slide" key={`${clone || 'project'}-${project.title}-${originalIndex}-${trackIndex}`}>
+              {renderProjectCard(project, originalIndex)}
+            </div>
           ))}
         </div>
-      )}
+      </div>
       {selectedProject && (
         <div className="project-modal-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setSelectedProject(null);
@@ -223,7 +280,7 @@ function ContentSection({ eyebrow, title, description, id }) {
     <section id={id} className={`content-section${id === 'projects' ? ' projects-section' : ''}`} aria-labelledby={`${id}-title`}>
       {id === 'projects' ? (
         <div className="projects-section-heading">
-          <TypingHeading id={`${id}-title`} title="02 — PROJECTS" />
+          <TypingHeading id={`${id}-title`} title="PROJECTS" />
           <a href="https://github.com/kingjustinespiritu?tab=repositories" target="_blank" rel="noopener noreferrer">ALL PROJECTS <i className="fa-solid fa-arrow-right" aria-hidden="true" /></a>
         </div>
       ) : (
@@ -297,7 +354,7 @@ function App() {
         }
 
         const marker = window.innerHeight * 0.4;
-        let currentSection = '';
+        let currentSection = window.scrollY < 100 ? 'home' : '';
         sections.forEach(({ id }) => {
           const section = document.getElementById(id);
           if (section && section.getBoundingClientRect().top <= marker) currentSection = id;
@@ -401,8 +458,8 @@ function App() {
               <a href="https://www.facebook.com/justin.espiritu.106" target="_blank" rel="noopener noreferrer" aria-label="Facebook profile">
                 <i className="fa-brands fa-facebook-f" aria-hidden="true" />
               </a>
-              <a href="https://www.linkedin.com/in/king-justin-espiritu-ab2675329/?isSelfProfile=true" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn profile">
-                <i className="fa-brands fa-linkedin-in" aria-hidden="true" />
+              <a href="https://www.instagram.com/justinnn.espiritu/" target="_blank" rel="noopener noreferrer" aria-label="Instagram profile">
+                <i className="fa-brands fa-instagram" aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -413,7 +470,7 @@ function App() {
           : <ContentSection key={section.id} {...section} />)}
       </main>
 
-      <footer><p>© <span>{new Date().getFullYear()}</span> King Justin Espiritu</p></footer>
+      <footer><p>© 2026 Nueva Ecija Philippines, Inc. All rights reserved.</p></footer>
     </>
   );
 }
